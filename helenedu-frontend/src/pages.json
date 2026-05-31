@@ -1,0 +1,119 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/student/homework-list",
+      "style": { "navigationBarTitleText": "我的作业" }
+    },
+    {
+      "path": "pages/student/homework-detail",
+      "style": { "navigationBarTitleText": "作业详情" }
+    },
+    {
+      "path": "pages/student/homework-submit",
+      "style": { "navigationBarTitleText": "提交作业" }
+    },
+    {
+      "path": "pages/student/preview-list",
+      "style": { "navigationBarTitleText": "预习资料" }
+    },
+    {
+      "path": "pages/student/profile",
+      "style": { "navigationBarTitleText": "个人中心" }
+    },
+    {
+      "path": "pages/teacher/class-list",
+      "style": { "navigationBarTitleText": "我的班级" }
+    },
+    {
+      "path": "pages/teacher/class-students",
+      "style": { "navigationBarTitleText": "学生管理" }
+    },
+    {
+      "path": "pages/teacher/homework-list",
+      "style": { "navigationBarTitleText": "作业管理" }
+    },
+    {
+      "path": "pages/teacher/homework-create",
+      "style": { "navigationBarTitleText": "布置作业" }
+    },
+    {
+      "path": "pages/teacher/homework-detail",
+      "style": { "navigationBarTitleText": "作业详情" }
+    },
+    {
+      "path": "pages/teacher/homework-review",
+      "style": { "navigationBarTitleText": "批改作业" }
+    },
+    {
+      "path": "pages/teacher/preview-manage",
+      "style": { "navigationBarTitleText": "预习资料" }
+    },
+    {
+      "path": "pages/teacher/profile",
+      "style": { "navigationBarTitleText": "个人中心" }
+    },
+    {
+      "path": "pages/admin/dashboard",
+      "style": { "navigationBarTitleText": "数据看板" }
+    },
+    {
+      "path": "pages/admin/class-manage",
+      "style": { "navigationBarTitleText": "班级管理" }
+    },
+    {
+      "path": "pages/admin/class-form",
+      "style": { "navigationBarTitleText": "编辑班级" }
+    },
+    {
+      "path": "pages/admin/user-manage",
+      "style": { "navigationBarTitleText": "人员管理" }
+    },
+    {
+      "path": "pages/admin/user-form",
+      "style": { "navigationBarTitleText": "编辑人员" }
+    },
+    {
+      "path": "pages/admin/profile",
+      "style": { "navigationBarTitleText": "个人中心" }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "HelenEdu",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F5F5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#4A90D9",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/student/homework-list",
+        "text": "作业",
+        "iconPath": "static/tab/homework.png",
+        "selectedIconPath": "static/tab/homework-active.png"
+      },
+      {
+        "pagePath": "pages/student/preview-list",
+        "text": "预习",
+        "iconPath": "static/tab/preview.png",
+        "selectedIconPath": "static/tab/preview-active.png"
+      },
+      {
+        "pagePath": "pages/student/profile",
+        "text": "我的",
+        "iconPath": "static/tab/profile.png",
+        "selectedIconPath": "static/tab/profile-active.png"
+      }
+    ]
+  }
+}

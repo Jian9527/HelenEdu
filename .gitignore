@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+helenedu-frontend/node_modules/
+
+# Build outputs
+target/
+helenedu-backend/target/
+dist/
+helenedu-frontend/dist/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Uploads
+uploads/
+
+# Qoder
+.qoder/
