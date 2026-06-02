@@ -48,9 +48,14 @@
       </view>
     </view>
 
-    <button class="btn-primary submit-btn" @click="handleSubmit" :disabled="submitting">
-      {{ submitting ? '提交中...' : '提交作业' }}
-    </button>
+    <view class="action-buttons">
+      <button class="btn-save" @click="handleSave" :disabled="submitting">
+        {{ submitting ? '保存中...' : '保存作业' }}
+      </button>
+      <button class="btn-primary btn-submit" @click="handleSubmit" :disabled="submitting">
+        {{ submitting ? '提交中...' : '提交作业' }}
+      </button>
+    </view>
   </view>
 </template>
 
@@ -65,10 +70,34 @@ const imageList = ref([])
 const fileList = ref([]) // {name, size, path}
 const submitting = ref(false)
 
-onMounted(() => {
+const isImageUrl = (url) => /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url)
+
+onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1]
   homeworkId.value = currentPage.options.id
+
+  // 加载已有草稿
+  try {
+    const hw = await getHomeworkDetail(homeworkId.value)
+    if (hw.mySubmitStatus === -1 && (hw.myDraftContent || hw.myDraftAttachmentUrls?.length)) {
+      content.value = hw.myDraftContent || ''
+      if (hw.myDraftAttachmentUrls && hw.myDraftAttachmentUrls.length) {
+        for (const url of hw.myDraftAttachmentUrls) {
+          if (isImageUrl(url)) {
+            imageList.value.push(url)
+          } else {
+            const nameMatch = url.match(/[?&]name=([^&#]+)/)
+            const name = nameMatch ? decodeURIComponent(nameMatch[1]) : decodeURIComponent(url.split('?')[0].split('/').pop() || '文件')
+            fileList.value.push({ name, size: 0, path: url })
+          }
+        }
+      }
+      console.log('草稿已加载')
+    }
+  } catch (err) {
+    console.error('加载草稿失败', err)
+  }
 })
 
 // 图片操作
@@ -146,6 +175,24 @@ const uploadAllFiles = async () => {
   return urls
 }
 
+const handleSave = async () => {
+  submitting.value = true
+  try {
+    const urls = await uploadAllFiles()
+    await submitHomework(homeworkId.value, {
+      content: content.value,
+      attachmentUrls: urls,
+      draft: true
+    })
+    uni.showToast({ title: '已保存草稿', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 1000)
+  } catch (err) {
+    console.error('保存草稿失败', err)
+  } finally {
+    submitting.value = false
+  }
+}
+
 const handleSubmit = async () => {
   if (!content.value.trim() && imageList.value.length === 0 && fileList.value.length === 0) {
     uni.showToast({ title: '请输入内容或上传附件', icon: 'none' })
@@ -157,12 +204,13 @@ const handleSubmit = async () => {
     const urls = await uploadAllFiles()
     await submitHomework(homeworkId.value, {
       content: content.value,
-      attachmentUrls: urls
+      attachmentUrls: urls,
+      draft: false
     })
     uni.showToast({ title: '提交成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 1500)
+    setTimeout(() => uni.switchTab({ url: '/pages/student/homework-list' }), 1500)
   } catch (err) {
-    console.error(err)
+    console.error('提交失败', err)
   } finally {
     submitting.value = false
   }
@@ -214,4 +262,15 @@ const handleSubmit = async () => {
 .add-file-btn .add-label { font-size: 26rpx; color: #999; }
 
 .submit-btn { margin-top: 20rpx; width: 100%; }
+
+/* 操作按钮组 */
+.action-buttons { display: flex; gap: 20rpx; margin-top: 24rpx; }
+.btn-save {
+  flex: 1; height: 84rpx; line-height: 84rpx; font-size: 30rpx; font-weight: 600;
+  background: #fff; color: #4A90D9; border: 2rpx solid #4A90D9; border-radius: 42rpx; padding: 0;
+}
+.btn-submit {
+  flex: 1; height: 84rpx; line-height: 84rpx; font-size: 30rpx; font-weight: 600;
+  border-radius: 42rpx; padding: 0;
+}
 </style>

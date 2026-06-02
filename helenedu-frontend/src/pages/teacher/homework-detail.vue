@@ -126,6 +126,21 @@ const fetchDetail = async () => {
   }
 }
 
+/**
+ * 从 URL 中提取原始文件名
+ * URL 格式: http://host/uploads/2026/06/02/uuid.pdf?name=原始文件名.pdf
+ */
+const getFileName = (url) => {
+  // 优先从 ?name= 参数获取原始文件名
+  const nameMatch = url.match(/[?&]name=([^&#]+)/)
+  if (nameMatch) {
+    return decodeURIComponent(nameMatch[1])
+  }
+  // 回退：从路径最后一段获取
+  const path = url.split('?')[0]
+  return decodeURIComponent(path.split('/').pop() || '文件')
+}
+
 const isImage = (url) => /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url)
 
 const imageAttachments = computed(() => {
@@ -137,7 +152,7 @@ const fileAttachments = computed(() => {
   if (!homework.value?.attachmentUrls) return []
   return homework.value.attachmentUrls.filter(url => !isImage(url)).map(url => ({
     url,
-    name: decodeURIComponent(url.split('/').pop() || '文件')
+    name: getFileName(url)
   }))
 })
 

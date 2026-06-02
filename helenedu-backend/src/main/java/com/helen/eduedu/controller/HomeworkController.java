@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.List;
 /**
  * 作业管理控制器
  */
+@Slf4j
 @Tag(name = "作业管理")
 @RestController
 @RequestMapping("/api/homework")
@@ -34,7 +36,7 @@ public class HomeworkController {
     @RequireRole({2})
     public R<Long> createHomework(HttpServletRequest request, @Valid @RequestBody HomeworkRequest req) {
         Long teacherId = (Long) request.getAttribute("userId");
-        System.out.println("创建作业请求: attachmentUrls = " + req.getAttachmentUrls());
+        log.debug("[作业API] 创建作业请求: teacherId={}, title={}, attachmentUrls={}", teacherId, req.getTitle(), req.getAttachmentUrls());
         return R.ok(homeworkService.createHomework(teacherId, req));
     }
 
@@ -42,7 +44,7 @@ public class HomeworkController {
     @PutMapping("/{id}")
     @RequireRole({2})
     public R<Void> updateHomework(@PathVariable Long id, @Valid @RequestBody HomeworkRequest req) {
-        System.out.println("更新作业请求: attachmentUrls = " + req.getAttachmentUrls());
+        log.debug("[作业API] 更新作业请求: homeworkId={}, attachmentUrls={}", id, req.getAttachmentUrls());
         homeworkService.updateHomework(id, req);
         return R.ok();
     }

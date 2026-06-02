@@ -4,9 +4,14 @@ import com.helen.eduedu.common.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,6 +34,26 @@ public class FileUploadService {
     @Value("${file.base-url:http://localhost:8888/uploads}")
     private String baseUrl;
 
+    /**
+     * 动态获取 base URL，优先使用当前请求的域名（便于手机访问）
+     */
+    private String getDynamicBaseUrl() {
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                HttpServletRequest request = attrs.getRequest();
+                String host = request.getServerName();
+                int port = request.getServerPort();
+                String scheme = request.getScheme();
+                String portStr = (port == 80 || port == 443) ? "" : ":" + port;
+                return scheme + "://" + host + portStr + "/uploads";
+            }
+        } catch (Exception e) {
+            log.debug("[文件上传] 无法获取请求域名, 使用默认baseUrl: {}", baseUrl);
+        }
+        return baseUrl;
+    }
+
     private static final List<String> ALLOWED_TYPES = List.of(
             "image/jpeg", "image/png", "image/gif", "image/webp",
             "application/pdf",
@@ -44,6 +69,8 @@ public class FileUploadService {
      * 上传单个文件
      */
     public String uploadFile(MultipartFile file) {
+        log.debug("[文件上传] 开始上传: 原始文件名={}, 大小={}KB, 类型={}", 
+                file.getOriginalFilename(), file.getSize() / 1024, file.getContentType());
         validateFile(file);
 
         try {
@@ -64,10 +91,16 @@ public class FileUploadService {
             Path filePath = dirPath.resolve(newFilename);
             file.transferTo(filePath.toFile());
 
-            // 返回访问URL
-            return baseUrl + "/" + datePath + "/" + newFilename;
+            String url = getDynamicBaseUrl() + "/" + datePath + "/" + newFilename;
+            // URL中附带原始文件名，便于前端展示
+            if (originalFilename != null && !originalFilename.isEmpty()) {
+                String encodedName = URLEncoder.encode(originalFilename, StandardCharsets.UTF_8);
+                url += "?name=" + encodedName;
+            }
+            log.debug("[文件上传] 上传成功: {}", url);
+            return url;
         } catch (IOException e) {
-            log.error("文件上传失败", e);
+            log.error("[文件上传] 上传失败: {}", file.getOriginalFilename(), e);
             throw new BusinessException("文件上传失败");
         }
     }
@@ -76,10 +109,12 @@ public class FileUploadService {
      * 批量上传文件
      */
     public List<String> uploadFiles(List<MultipartFile> files) {
+        log.debug("[文件上传] 批量上传: 文件数={}", files.size());
         List<String> urls = new ArrayList<>();
         for (MultipartFile file : files) {
             urls.add(uploadFile(file));
         }
+        log.debug("[文件上传] 批量上传完成: {}个文件", urls.size());
         return urls;
     }
 

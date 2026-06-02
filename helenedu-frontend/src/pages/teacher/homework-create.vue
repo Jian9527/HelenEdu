@@ -152,7 +152,11 @@ const loadHomework = async (id) => {
         if (isImageUrl(url)) {
           imageList.value.push(url)
         } else {
-          const name = decodeURIComponent(url.split('/').pop() || '文件')
+          // 优先从 ?name= 参数获取原始文件名
+          const nameMatch = url.match(/[?&]name=([^&#]+)/)
+          const name = nameMatch
+            ? decodeURIComponent(nameMatch[1])
+            : decodeURIComponent(url.split('?')[0].split('/').pop() || '文件')
           fileList.value.push({ name, path: url })
         }
       }

@@ -12,6 +12,7 @@ import com.helen.eduedu.mapper.*;
 import com.helen.eduedu.vo.HomeworkSubmitVO;
 import com.helen.eduedu.vo.HomeworkVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 /**
  * 作业管理服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HomeworkService {
@@ -39,9 +41,11 @@ public class HomeworkService {
      */
     @Transactional
     public Long createHomework(Long teacherId, HomeworkRequest request) {
+        log.debug("[作业管理] 创建作业: teacherId={}, classId={}, title={}, attachmentUrls={}", 
+                teacherId, request.getClassId(), request.getTitle(), request.getAttachmentUrls());
         EduHomework homework = new EduHomework();
         BeanUtils.copyProperties(request, homework);
-        System.out.println("copyProperties后: attachmentUrls = " + homework.getAttachmentUrls());
+        log.debug("[作业管理] copyProperties后: attachmentUrls={}", homework.getAttachmentUrls());
         homework.setTeacherId(teacherId);
         if (homework.getStatus() == null) {
             homework.setStatus(1); // 默认发布
@@ -50,11 +54,12 @@ public class HomeworkService {
             homework.setTargetType(0); // 默认全班
         }
         eduHomeworkMapper.insert(homework);
-        System.out.println("插入后作业ID: " + homework.getId());
+        log.debug("[作业管理] 作业创建成功: homeworkId={}, teacherId={}", homework.getId(), teacherId);
 
         // 如果是指定学生，保存学生ID列表
         if (request.getTargetType() != null && request.getTargetType() == 1
                 && request.getStudentIds() != null && !request.getStudentIds().isEmpty()) {
+            log.debug("[作业管理] 指定学生: homeworkId={}, studentIds={}", homework.getId(), request.getStudentIds());
             for (Long studentId : request.getStudentIds()) {
                 EduHomeworkStudent hs = new EduHomeworkStudent();
                 hs.setHomeworkId(homework.getId());
@@ -70,14 +75,17 @@ public class HomeworkService {
      */
     @Transactional
     public void updateHomework(Long id, HomeworkRequest request) {
+        log.debug("[作业管理] 更新作业: homeworkId={}, title={}, attachmentUrls={}", id, request.getTitle(), request.getAttachmentUrls());
         EduHomework homework = eduHomeworkMapper.selectById(id);
         if (homework == null) {
+            log.warn("[作业管理] 作业不存在: homeworkId={}", id);
             throw new BusinessException("作业不存在");
         }
-        System.out.println("更新前原attachmentUrls: " + homework.getAttachmentUrls());
+        log.debug("[作业管理] 更新前原attachmentUrls: {}", homework.getAttachmentUrls());
         BeanUtils.copyProperties(request, homework);
-        System.out.println("copyProperties后: attachmentUrls = " + homework.getAttachmentUrls());
+        log.debug("[作业管理] copyProperties后: attachmentUrls={}", homework.getAttachmentUrls());
         eduHomeworkMapper.updateById(homework);
+        log.debug("[作业管理] 作业更新成功: homeworkId={}", id);
     }
 
     /**
@@ -85,7 +93,9 @@ public class HomeworkService {
      */
     @Transactional
     public void deleteHomework(Long id) {
+        log.debug("[作业管理] 删除作业: homeworkId={}", id);
         eduHomeworkMapper.deleteById(id);
+        log.debug("[作业管理] 作业删除成功: homeworkId={}", id);
     }
 
     /**
@@ -168,7 +178,13 @@ public class HomeworkService {
         // 按提交状态筛选
         if (statusFilter != null) {
             voList = voList.stream()
-                    .filter(v -> v.getMySubmitStatus() != null && v.getMySubmitStatus().equals(statusFilter))
+                    .filter(v -> {
+                        Integer s = v.getMySubmitStatus();
+                        if (s == null) return false;
+                        // "待完成"包含未提交(0)和草稿(-1)
+                        if (statusFilter == 0) return s == 0 || s == -1;
+                        return s.equals(statusFilter);
+                    })
                     .collect(Collectors.toList());
         }
 
@@ -176,48 +192,60 @@ public class HomeworkService {
     }
 
     /**
-     * 提交作业（学生）
+     * 提交作业或保存草稿（学生）
      */
     @Transactional
     public void submitHomework(Long homeworkId, Long studentId, HomeworkSubmitRequest request) {
+        boolean isDraft = Boolean.TRUE.equals(request.getDraft());
+        log.debug("[作业提交] {}: homeworkId={}, studentId={}, content长度={}, attachmentUrls={}", 
+                isDraft ? "保存草稿" : "提交作业", homeworkId, studentId, 
+                request.getContent() != null ? request.getContent().length() : 0, request.getAttachmentUrls());
         EduHomework homework = eduHomeworkMapper.selectById(homeworkId);
         if (homework == null) {
             throw new BusinessException("作业不存在");
         }
 
-        // 检查截止时间
-        if (homework.getDeadline() != null && LocalDateTime.now().isAfter(homework.getDeadline())) {
+        // 提交时检查截止时间
+        if (!isDraft && homework.getDeadline() != null && LocalDateTime.now().isAfter(homework.getDeadline())) {
+            log.warn("[作业提交] 已过截止时间: homeworkId={}, deadline={}", homeworkId, homework.getDeadline());
             throw new BusinessException("已过截止时间，无法提交");
         }
 
-        // 检查是否已提交
+        // 查找已有记录
         EduHomeworkSubmit existing = eduHomeworkSubmitMapper.selectOne(
                 new LambdaQueryWrapper<EduHomeworkSubmit>()
                         .eq(EduHomeworkSubmit::getHomeworkId, homeworkId)
                         .eq(EduHomeworkSubmit::getStudentId, studentId)
         );
 
+        int targetStatus = isDraft ? -1 : 0; // -1=草稿, 0=已提交
+
         if (existing != null) {
-            if (existing.getStatus() != 2) { // 非退回状态不可重新提交
+            // 已提交状态不允许覆盖
+            if (existing.getStatus() == 0) {
                 throw new BusinessException("已提交，请勿重复提交");
             }
-            // 退回后重新提交
+            // 草稿、已批改、已退回均可更新
             existing.setContent(request.getContent());
             existing.setAttachmentUrls(request.getAttachmentUrls());
-            existing.setStatus(0);
-            existing.setSubmitTime(LocalDateTime.now());
-            existing.setScore(null);
-            existing.setComment(null);
+            existing.setStatus(targetStatus);
+            existing.setSubmitTime(isDraft ? existing.getSubmitTime() : LocalDateTime.now());
+            if (!isDraft) {
+                existing.setScore(null);
+                existing.setComment(null);
+            }
             eduHomeworkSubmitMapper.updateById(existing);
+            log.debug("[作业提交] 更新记录: homeworkId={}, studentId={}, status={}", homeworkId, studentId, targetStatus);
         } else {
             EduHomeworkSubmit submit = new EduHomeworkSubmit();
             submit.setHomeworkId(homeworkId);
             submit.setStudentId(studentId);
             submit.setContent(request.getContent());
             submit.setAttachmentUrls(request.getAttachmentUrls());
-            submit.setStatus(0);
-            submit.setSubmitTime(LocalDateTime.now());
+            submit.setStatus(targetStatus);
+            submit.setSubmitTime(isDraft ? null : LocalDateTime.now());
             eduHomeworkSubmitMapper.insert(submit);
+            log.debug("[作业提交] {}成功: homeworkId={}, studentId={}", isDraft ? "保存草稿" : "提交作业", homeworkId, studentId);
         }
     }
 
@@ -243,8 +271,11 @@ public class HomeworkService {
      */
     @Transactional
     public void reviewHomework(Long submitId, HomeworkReviewRequest request) {
+        log.debug("[作业批改] 批改作业: submitId={}, score={}, status={}, comment={}", 
+                submitId, request.getScore(), request.getStatus(), request.getComment());
         EduHomeworkSubmit submit = eduHomeworkSubmitMapper.selectById(submitId);
         if (submit == null) {
+            log.warn("[作业批改] 提交记录不存在: submitId={}", submitId);
             throw new BusinessException("提交记录不存在");
         }
 
@@ -253,6 +284,8 @@ public class HomeworkService {
         submit.setStatus(request.getStatus());
         submit.setReviewTime(LocalDateTime.now());
         eduHomeworkSubmitMapper.updateById(submit);
+        log.debug("[作业批改] 批改成功: submitId={}, homeworkId={}, studentId={}", 
+                submitId, submit.getHomeworkId(), submit.getStudentId());
     }
 
     /**
@@ -335,6 +368,10 @@ public class HomeworkService {
             );
             if (mySubmit == null) {
                 vo.setMySubmitStatus(0); // 未提交
+            } else if (mySubmit.getStatus() == -1) {
+                vo.setMySubmitStatus(-1); // 草稿
+                vo.setMyDraftContent(mySubmit.getContent());
+                vo.setMyDraftAttachmentUrls(mySubmit.getAttachmentUrls());
             } else {
                 vo.setMySubmitStatus(mySubmit.getStatus() + 1); // 0->1(已提交), 1->2(已批改), 2->3(已退回)
                 vo.setMySubmitId(String.valueOf(mySubmit.getId()));

@@ -14,6 +14,7 @@ import com.helen.eduedu.mapper.EduClassStudentMapper;
 import com.helen.eduedu.mapper.SysUserMapper;
 import com.helen.eduedu.vo.UserVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 /**
  * 用户管理服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -37,13 +39,16 @@ public class UserService {
      */
     @Transactional
     public Long createUser(UserRequest request) {
+        log.debug("[用户管理] 创建用户: name={}, phone={}, role={}", request.getName(), request.getPhone(), request.getRole());
         SysUser user = new SysUser();
         BeanUtils.copyProperties(request, user);
         user.setStatus(1);
         sysUserMapper.insert(user);
+        log.debug("[用户管理] 用户创建成功: userId={}", user.getId());
 
         // 学生角色且指定了班级，自动加入班级
         if (request.getRole() != null && request.getRole() == 1 && request.getClassId() != null) {
+            log.debug("[用户管理] 学生加入班级: studentId={}, classId={}", user.getId(), request.getClassId());
             addStudentToClass(user.getId(), request.getClassId());
         }
         return user.getId();
@@ -54,12 +59,15 @@ public class UserService {
      */
     @Transactional
     public void updateUser(Long id, UserRequest request) {
+        log.debug("[用户管理] 更新用户: userId={}, name={}, role={}", id, request.getName(), request.getRole());
         SysUser user = sysUserMapper.selectById(id);
         if (user == null) {
+            log.warn("[用户管理] 用户不存在: userId={}", id);
             throw new BusinessException("用户不存在");
         }
         BeanUtils.copyProperties(request, user);
         sysUserMapper.updateById(user);
+        log.debug("[用户管理] 用户更新成功: userId={}", id);
 
         // 学生角色更新班级
         if (request.getRole() != null && request.getRole() == 1 && request.getClassId() != null) {
@@ -68,6 +76,7 @@ public class UserService {
                 new LambdaQueryWrapper<EduClassStudent>().eq(EduClassStudent::getStudentId, id)
             );
             addStudentToClass(id, request.getClassId());
+            log.debug("[用户管理] 学生班级更新: studentId={}, classId={}", id, request.getClassId());
         }
     }
 
@@ -80,8 +89,10 @@ public class UserService {
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        user.setStatus(user.getStatus() == 1 ? 0 : 1);
+        int newStatus = user.getStatus() == 1 ? 0 : 1;
+        user.setStatus(newStatus);
         sysUserMapper.updateById(user);
+        log.debug("[用户管理] 用户状态变更: userId={}, newStatus={}", id, newStatus == 1 ? "启用" : "禁用");
     }
 
     /**
@@ -89,7 +100,9 @@ public class UserService {
      */
     @Transactional
     public void deleteUser(Long id) {
+        log.debug("[用户管理] 删除用户: userId={}", id);
         sysUserMapper.deleteById(id);
+        log.debug("[用户管理] 用户删除成功: userId={}", id);
     }
 
     /**

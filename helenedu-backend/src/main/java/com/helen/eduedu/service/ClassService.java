@@ -12,6 +12,7 @@ import com.helen.eduedu.vo.ClassVO;
 import com.helen.eduedu.vo.UserVO;
 import com.helen.eduedu.common.RoleEnum;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 /**
  * 班级管理服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClassService {
@@ -36,10 +38,12 @@ public class ClassService {
      */
     @Transactional
     public Long createClass(ClassRequest request) {
+        log.debug("[班级管理] 创建班级: name={}, teacherId={}", request.getName(), request.getTeacherId());
         EduClass eduClass = new EduClass();
         BeanUtils.copyProperties(request, eduClass);
         eduClass.setStatus(1);
         eduClassMapper.insert(eduClass);
+        log.debug("[班级管理] 班级创建成功: classId={}", eduClass.getId());
 
         // 如果指定了班主任，自动加入班级教师关联表
         if (request.getTeacherId() != null) {
@@ -53,6 +57,7 @@ public class ClassService {
      */
     @Transactional
     public void updateClass(Long id, ClassRequest request) {
+        log.debug("[班级管理] 更新班级: classId={}, name={}", id, request.getName());
         EduClass eduClass = eduClassMapper.selectById(id);
         if (eduClass == null) {
             throw new BusinessException("班级不存在");
@@ -65,7 +70,9 @@ public class ClassService {
         Long newTeacherId = request.getTeacherId();
         if (newTeacherId != null && !newTeacherId.equals(oldTeacherId)) {
             addTeacherIfAbsent(id, newTeacherId);
+            log.debug("[班级管理] 班主任变更: classId={}, newTeacherId={}", id, newTeacherId);
         }
+        log.debug("[班级管理] 班级更新成功: classId={}", id);
     }
 
     /**
@@ -90,6 +97,7 @@ public class ClassService {
      */
     @Transactional
     public void deleteClass(Long id) {
+        log.debug("[班级管理] 删除班级: classId={}", id);
         EduClass eduClass = eduClassMapper.selectById(id);
         if (eduClass == null) {
             throw new BusinessException("班级不存在");
@@ -97,6 +105,7 @@ public class ClassService {
         // 软删除：设置状态为0
         eduClass.setStatus(0);
         eduClassMapper.updateById(eduClass);
+        log.debug("[班级管理] 班级删除成功: classId={}", id);
     }
 
     /**

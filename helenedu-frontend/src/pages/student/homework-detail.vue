@@ -71,15 +71,31 @@
 
     <!-- 操作按钮 -->
     <view class="action-bar" v-if="homework">
+      <!-- 未提交 / 草稿 / 已退回：可进入做作业页面 -->
       <button 
-        v-if="homework.mySubmitStatus === 0 || homework.mySubmitStatus === 3" 
+        v-if="homework.mySubmitStatus === 0" 
         class="btn-primary action-btn"
         @click="goSubmit"
       >
-        {{ homework.mySubmitStatus === 3 ? '重新提交' : '提交作业' }}
+        开始做作业
       </button>
+      <button 
+        v-else-if="homework.mySubmitStatus === -1" 
+        class="btn-primary action-btn"
+        @click="goSubmit"
+      >
+        继续做作业
+      </button>
+      <button 
+        v-else-if="homework.mySubmitStatus === 3" 
+        class="btn-primary action-btn"
+        @click="goSubmit"
+      >
+        重新提交
+      </button>
+      <!-- 已提交 / 已批改 -->
       <view v-else class="submitted-tip">
-        <text>已提交，等待批改</text>
+        <text>{{ homework.mySubmitStatus === 1 ? '已提交，等待批改' : '已批改' }}</text>
       </view>
     </view>
   </view>
@@ -88,6 +104,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getHomeworkDetail, getSubmitDetail } from '../../api/index'
+import { onShow } from '@dcloudio/uni-app'
 
 const homework = ref(null)
 const submitDetail = ref(null)
@@ -99,6 +116,13 @@ onMounted(async () => {
   homeworkId.value = currentPage.options.id
   
   await fetchDetail()
+})
+
+// 每次页面显示时刷新数据（从提交页返回时更新状态）
+onShow(() => {
+  if (homeworkId.value) {
+    fetchDetail()
+  }
 })
 
 const fetchDetail = async () => {
@@ -121,6 +145,13 @@ const goSubmit = () => {
 
 const isImage = (url) => /\.(jpg|jpeg|png|gif|webp|bmp)(\?.*)?$/i.test(url)
 
+const getFileName = (url) => {
+  const nameMatch = url.match(/[?&]name=([^&#]+)/)
+  if (nameMatch) return decodeURIComponent(nameMatch[1])
+  const path = url.split('?')[0]
+  return decodeURIComponent(path.split('/').pop() || '文件')
+}
+
 const imageAttachments = computed(() => {
   if (!homework.value?.attachmentUrls) return []
   return homework.value.attachmentUrls.filter(isImage)
@@ -130,7 +161,7 @@ const fileAttachments = computed(() => {
   if (!homework.value?.attachmentUrls) return []
   return homework.value.attachmentUrls.filter(url => !isImage(url)).map(url => ({
     url,
-    name: decodeURIComponent(url.split('/').pop() || '文件')
+    name: getFileName(url)
   }))
 })
 
@@ -156,7 +187,7 @@ const previewImage = (url) => {
 }
 
 const getStatusText = (status) => {
-  const map = { 0: '未提交', 1: '已提交', 2: '已批改', 3: '已退回' }
+  const map = { '-1': '草稿', 0: '未提交', 1: '已提交', 2: '已批改', 3: '已退回' }
   return map[status] || '未提交'
 }
 

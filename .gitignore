@@ -18,6 +18,8 @@ helenedu-frontend/dist/
 Thumbs.db
 
 # Logs
+logs/*
+!logs/.gitkeep
 *.log
 
 # Uploads

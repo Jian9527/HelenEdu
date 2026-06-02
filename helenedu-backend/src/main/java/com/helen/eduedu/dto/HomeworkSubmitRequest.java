@@ -11,4 +11,6 @@ import java.util.List;
 public class HomeworkSubmitRequest {
     private String content;
     private List<String> attachmentUrls;
+    /** 是否为草稿保存 */
+    private Boolean draft;
 }

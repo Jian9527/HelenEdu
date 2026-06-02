@@ -35,6 +35,10 @@ public class HomeworkVO {
     private Integer reviewedCount;
 
     /** 学生提交状态（学生视角） */
-    private Integer mySubmitStatus; // 0-未提交 1-已提交 2-已批改 3-已退回
+    private Integer mySubmitStatus; // -1-草稿 0-未提交 1-已提交 2-已批改 3-已退回
     private String mySubmitId;
+    /** 草稿内容（学生视角，mySubmitStatus=-1时返回） */
+    private String myDraftContent;
+    /** 草稿附件（学生视角，mySubmitStatus=-1时返回） */
+    private List<String> myDraftAttachmentUrls;
 }

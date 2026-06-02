@@ -1,5 +1,12 @@
 // API 基础配置
-const BASE_URL = 'http://localhost:8888'
+// H5模式自动使用当前访问地址的域名/IP，便于手机访问
+let BASE_URL = 'http://localhost:8888'
+// #ifdef H5
+if (typeof window !== 'undefined') {
+  const hostname = window.location.hostname
+  BASE_URL = `http://${hostname}:8888`
+}
+// #endif
 
 /**
  * 封装 uni.request

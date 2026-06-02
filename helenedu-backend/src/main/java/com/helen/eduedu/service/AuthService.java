@@ -40,18 +40,22 @@ public class AuthService {
      * 微信小程序登录
      */
     public LoginVO wxLogin(WxLoginRequest request) {
+        log.debug("[登录] 收到登录请求, code={}", request.getCode());
         String openid;
         String code = request.getCode();
 
         // H5 开发模式：code 以 "dev_" 开头，后面跟手机号，直接按手机号查找用户
         if (code != null && code.startsWith("dev_")) {
             String phone = code.substring(4);
+            log.debug("[登录] H5开发模式, 手机号={}", phone);
             SysUser devUser = sysUserMapper.selectOne(
                     new LambdaQueryWrapper<SysUser>().eq(SysUser::getPhone, phone)
             );
             if (devUser == null) {
+                log.warn("[登录] 手机号未注册: {}", phone);
                 throw new BusinessException("手机号未注册: " + phone);
             }
+            log.debug("[登录] 用户认证成功: userId={}, name={}, role={}", devUser.getId(), devUser.getName(), devUser.getRole());
             String token = jwtUtil.generateToken(devUser.getId(), devUser.getRole());
             LoginVO loginVO = new LoginVO();
             loginVO.setToken(token);
@@ -66,6 +70,7 @@ public class AuthService {
 
         // 正式微信小程序登录
         openid = getWxOpenid(code);
+        log.debug("[登录] 获取openid成功: {}", openid);
 
         // 查询用户是否已存在
         SysUser user = sysUserMapper.selectOne(
@@ -75,6 +80,7 @@ public class AuthService {
         boolean isNewUser = false;
         if (user == null) {
             // 新用户注册
+            log.debug("[注册] 新用户注册, openid={}", openid);
             isNewUser = true;
             user = new SysUser();
             user.setOpenid(openid);
@@ -83,6 +89,7 @@ public class AuthService {
             user.setRole(RoleEnum.STUDENT.getCode()); // 默认学生角色
             user.setStatus(1);
             sysUserMapper.insert(user);
+            log.debug("[注册] 新用户注册成功: userId={}, name={}", user.getId(), user.getName());
         }
 
         // 检查用户状态
@@ -103,6 +110,7 @@ public class AuthService {
         loginVO.setNewUser(isNewUser);
         loginVO.setSubject(user.getSubject());
 
+        log.debug("[登录] 登录成功: userId={}, name={}, role={}, isNewUser={}", user.getId(), user.getName(), user.getRole(), isNewUser);
         return loginVO;
     }
 

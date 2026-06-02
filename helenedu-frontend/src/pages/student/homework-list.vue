@@ -53,6 +53,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getStudentHomeworkList } from '../../api/index'
+import { onShow } from '@dcloudio/uni-app'
 
 const tabs = [
   { label: '全部', value: null },
@@ -107,7 +108,7 @@ const goDetail = (id) => {
 }
 
 const getStatusText = (status) => {
-  const map = { 0: '未提交', 1: '已提交', 2: '已批改', 3: '已退回' }
+  const map = { '-1': '草稿', 0: '未提交', 1: '已提交', 2: '已批改', 3: '已退回' }
   return map[status] || '未提交'
 }
 
@@ -124,6 +125,14 @@ const formatDate = (dateStr) => {
 
 onMounted(() => {
   fetchList()
+})
+
+// 每次页面显示时刷新（从其他页面返回时更新状态）
+onShow(() => {
+  if (homeworkList.value.length > 0) {
+    page.value = 1
+    fetchList()
+  }
 })
 </script>
 
